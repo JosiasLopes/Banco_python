@@ -2,64 +2,102 @@ from datetime import datetime,date,timezone
 from reportlab.platypus import SimpleDocTemplate
 from reportlab.platypus import Table
 from reportlab.lib.pagesizes import letter
+from abc import ABC,abstractmethod,abstractproperty
 import os
+import conta as ct
 
-dados = []
-dia = ""
-mes = ""
-ano = ""
-hora = ""
-minuto = ""
-segundo = ""
-data =""
+
+
+
+
+class Cliente:
+    _endereco =""
+    _contas = []
+    _nome =""
+    _cpf = 0
+    
+    def adicionarConta(self,conta):
+        self._contas.append(conta)
+
+    def __init__(self,nome,endereco,cpf):
+        self._nome = nome
+        self._cpf = cpf
+        self._endereco = endereco
+
+    @property
+    def name(self):
+        return self._nome
+
+    @name.setter
+    def name(self,val):
+        self._nome = val
+
+    @property
+    def cpf(self):
+        return self._cpf
+
+    @cpf.setter
+    def cpf(self,val):
+        self._cpf = val
+
+    @property
+    def contas(self):
+        return self._contas
+
+    @property
+    def limite(self):
+        return self._limite
+
+    
+
+    
+
+        
+    
+
 menu = f"""
+    digite 0 para buscar e selecionar um Usuario
     digite 1 para depositar
     digite 2 para sacar
     digite 3 para extrato
-    digite 4 para exportar extrato
-    digite 5 para cadastrar um novo usuario
-    digite 6 para cadastrar um nova conta
-    digite 7 para listar contas
-    digite 8 para fechar o app"""
-saldo = 0
-limite = 500
-extrato = []
-numero_saques = 3
+    digite 4 para cadastrar um novo usuario
+    digite 5 para cadastrar um nova conta
+    digite 6 para listar contas
+    digite 7 para fechar o app"""
+
 numero_saques = 0
-LIMITE_SAQUES = 3
 titulo_extrato = "EXTRATO"
 titulo_extrato =titulo_extrato.center(50,"=")
 titulo = "Bem vindo ao sistema bancario basico em Python"
 titulo = titulo.center(50,"=")
 opcao = ""
-indice =0
 
-past = os.path.dirname(__file__)
-pdf = SimpleDocTemplate(
-    past+"/extrato_tabela2.pdf",pagesize=letter)
-table = [] 
-elems = []
-
-usuarios = []
 contas = []
+clientes = []
+indice_clientes = 0
+indice_contas = 0
+n_conta_selecionada = 0
+cpf_selecionado =0
+numero_inicial_conta = 0
+
 
 #Função para cadastrar usurio
 def cadastrarUsuario(nome,cpf,endereco):
-    global usuarios
+    global clientes
     local_user = []
     #caso a lista esta vazia adicionamos o usuario
-    if len(usuarios)==0:
-        usuarios.append({"nome":nome,"cpf":cpf,"endereco":endereco})
-        print(f"Usuario : {nome} cadastrado com sucesso")
-    elif len(usuarios)>0:
+    if len(clientes)==0:
+        clientes.append(Cliente(nome,endereco,cpf))
+        print(f"Usuario : {clientes[0].name} cadastrado com sucesso")
+    elif len(clientes)>0:
         local_user = UserExists(cpf)
         #se local_user tiver algum usuario fara a comparação com o nome
-        if local_user!= None and local_user[1] == cpf:
-           print(f"Usuario : {nome} Ja existe")
-        elif local_user == None or local_user != nome:
-            print(usuarios)
-            usuarios.append({"nome":nome,"cpf":cpf,"endereco":endereco})
-            print(f"Usuario : {nome} cadastrado com sucesso")
+        if local_user!= None and local_user[0].cpf == cpf:
+           print(f"Usuario : {local_user[0].name} Ja existe")
+        elif local_user == None:
+            print(clientes)
+            clientes.append(Cliente(nome,endereco,cpf))
+            print(f"Usuario : {clientes[-1].name} cadastrado com sucesso")
         
     else:
         print(f"Usuario : {nome} usuario ha existente")
@@ -67,101 +105,180 @@ def cadastrarUsuario(nome,cpf,endereco):
 
 #função para cadastro de agencia    
 def cadastrarConta(agencia):
-    global usuarios
+    
+    global clientes
+    global numero_inicial_conta
     cpf = int(input("Informe o cpf do usuario"))
-    local_user = []
-    local_user = UserExists(cpf)
-    conta = 1
-    conta = conta+len(contas)
+    local_user = pegaCliente(cpf)
+    numero_inicial_conta += 1
    
     if local_user!= None:
-        print(f"Conta {conta} vinculada ao usuario: {local_user[0]}")
-        contas.append({"agencia":agencia,"numero":conta,"usuario":local_user[0]})
+        print(f"Conta {numero_inicial_conta} vinculada ao usuario: {local_user.name}")
+        conta_corrente = ct.ContaCorrente()
+        conta_corrente._numero = numero_inicial_conta
+        conta_corrente._cliente = local_user
+        conta_corrente._agencia = agencia
+        conta_corrente.limite = 500.0
+        #nova_conta(local_user[0],numero_conta,agencia)
+        local_user.adicionarConta(conta_corrente)
+        contas.append(conta_corrente)
+
     elif local_user == None:
-        print(usuarios)
+        print(clientes)
+        print("usuario não encontrado")
+
+def selecionarCliente():
+    sub_opt = 0
+    global clientes
+    global contas
+    global n_conta_selecionada
+    global cpf_selecionado
+    cpf = int(input("Informe o cpf do usuario"))
+    local_user = pegaCliente(cpf)
+    tmp_conta = []
+    
+    if local_user!= None:
+        print(f"Usuario selecionado: {local_user.name}")
+        if local_user.contas!= None:
+            listarContas()
+            cpf_selecionado = cpf
+            while True:
+                sub_opt = input("""
+    Deseja escolher uma conta para operar ou voltar ao menu principal?
+    Digite 1 para selecionar uma conta
+    Digite 2 para voltar
+                                """)
+                if sub_opt == "1":
+                        print("Escolha sua conta".center(50,"="))
+                        numero_conta = int(input("Digite o numero da conta"))
+                        tmp_conta = Conta(numero_conta,cpf_selecionado)
+                        if tmp_conta.numero == numero_conta and tmp_conta.cliente.cpf==cpf_selecionado:
+                            print(f"Conta : {numero_conta} do usuario: {local_user.name} selecionada")
+                            n_conta_selecionada = numero_conta
+                        else:
+                            print(f"Conta : {numero_conta} do usuario: {local_user.name} não encontrada")
+                    
+                elif sub_opt == "2":
+                    print("Voltando")
+                    break
+                
+        else:
+            print("O usuario não possui contas cadastradas")
+
+    elif local_user == None:
+        print(clientes)
         print("usuario não encontrado")
         
-def UserExists(cpf):
-    global usuarios
-    tmp =[]
-    user = []
-    for indice in range(len(usuarios)): 
-        tmp = usuarios[indice]
-        if cpf == tmp.get("cpf"):
-            user.append(tmp.get("nome"))
-            user.append(tmp.get("cpf"))
-           # user[0] = tmp.get("nome")
-            return user
-    else:
-        return None
+
+def pegaCliente(cpf):
+    global clientes
+    tmp_cliente = ""
+    for i in range(len(clientes)):
+        if clientes[i].cpf == cpf:
+            tmp_cliente = clientes[i]
+            return tmp_cliente
+
+
+def Conta(numero,cpf):
+    global contas
+    tmp_cliente = pegaCliente(cpf)
+    for i in range(len(contas)):
+        if contas[i].cliente.cpf == tmp_cliente.cpf and contas[i].numero == tmp_cliente.contas[i].numero:
+            return contas[i]
+    
         
 
 def listarContas():
     print("=".center(50,"="))
-    for i in contas:
-        for j,k in i.items():
-            print(f"""{j}-----------------------------------------""",k)
-        print("=".center(50,"="))
+    for i in clientes:
+        for j in contas:
+            print(f"Agencia: --------------------------------------------------",j._agencia)
+            print(f"Conta: --------------------------------------------------",j._numero)
+            print(f"Usuario: --------------------------------------------------",j._cliente.name)
+            print("=".center(50,"="))
+        #print("=".center(50,"="))
     print("=".center(50,"="))
             
-            
+
+def ExtratoConta():
+    tmp_cliente = UserExists(cpf_selecionado)
+    try:
+        conta = ChooseAcount(n_conta_selecionada,tmp_cliente[0].cpf)
+        if conta !=None:
+            conta.extrato.listar_transacao()
+        else:
+            print("Selecione uma conta para exibir seu extrato")
+    except:
+         print("Selecione uma conta para exibir seu extrato")
+    
     
 def Depositar(valor):
-    if valor>0:
-            global saldo
-            global indice
-            saldo += valor
-            data = datetime.today()
-            ano = data.year
-            mes = data.month
-            dia = data.year
-            hora = data.hour
-            minuto = data.minute
-            segundo = data.second
-            dados.append(list())
-            dados[indice].append(f"Valor depositado {valor} na data {dia}/{mes}/{ano} as {hora}:{minuto}:{segundo}")
-           # extrato.append(f"Valor depositado {valor} na data {dia}/{mes}/{ano} as {hora}:{minuto}:{segundo}")
-            print(f"Operacao de deposito realizada com sucesso seu saldo é: {saldo}")
-            indice+=1
+    global cpf_selecionado
+    global n_conta_selecionada
+    tmp_cliente = pegaCliente(cpf_selecionado)
+    conta = Conta(n_conta_selecionada,tmp_cliente.cpf)
+    if conta != None:
+            if valor>0:
+                print(f"Conta: {conta.numero}  titular: {conta.cliente.name} saldo atual: {conta.saldo}")
+                conta.depositar(valor)
+                deposito = ct.historico.Deposito()
+                deposito.registrar(valor)
+                conta.extrato.adicionar_transacao(deposito)
+                
+              
+                print(f"Operacao de deposito realizada com sucesso seu saldo é: {conta.saldo}")
+                print(f"Conta: {conta.numero}  titular: {tmp_cliente.name} saldo: {conta.saldo}")
+            else:
+                print("Operação não executada o valor não pode ser menor ou iguala zero")
     else:
-            print("Operação não executada o valor não pode ser menor ou iguala zero")
+            print("Não é possivel efetuar um Deposito sem selecionar uma conta")
+
+    
+   
+    
+    
 
 
 def Sacar(valor):
-    if valor>0:
-            global saldo
-            global indice
-            global numero_saques
-            global LIMITE_SAQUES
-            data = datetime.today()
-            ano = data.year
-            mes = data.month
-            dia = data.year
-            hora = data.hour
-            minuto = data.minute
-            segundo = data.second
-            if valor<=limite:
-                if saldo>0 and saldo>=valor:
-                    if numero_saques<LIMITE_SAQUES:
-                        saldo -= valor
-                        numero_saques +=1
-                        dados.append(list())
-                        dados[indice].append(f"Valor sacado {valor} na data {dia}/{mes}/{ano} as {hora}:{minuto}:{segundo}")
-                        print(f"Operação de saque executada com sucesso seu saldo é: {saldo}")
-                        indice+=1
+    tmp_cliente = UserExists(cpf_selecionado)
+    try:
+        conta = ChooseAcount(n_conta_selecionada,tmp_cliente[0].cpf)
+        if conta != None:
+            if valor>0:
+                    global indice
+                    global numero_saques
+                    if valor<=conta.limite:
+                        if conta.saldo>0 and conta.saldo>=valor:
+                            if numero_saques<conta.saques:
+                                conta.sacar(valor)
+                                saque = ct.historico.Saque()
+                                saque.registrar(valor)
+                                conta.extrato.adicionar_transacao(saque)
+                                numero_saques +=1
+                                
+                                
+                                print(f"Operacao de deposito realizada com sucesso seu saldo é: {conta.saldo}")
+                                
+                            else:
+                                print("Operação não executada limite de saques atingido")
+                        else:
+                            print("Operação não executada o valor de saque não pode ser maior que o saldo, ou o saldo esta zerado")
                     else:
-                        print("Operação não executada limite de saques atingido")
-                else:
-                    print("Operação não executada o valor de saque não pode ser maior que o saldo, ou o saldo esta zerado")
+                        print(f"Operação não executada pois o saque não pode ultrapassar o limite de {conta.limite}")
             else:
-                print(f"Operação não executada pois o saque não pode ultrapassar o limite de {limite}")
-    else:
-        print("O valor a ser sacado não pode ser zero")
+                print("O valor a ser sacado não pode ser zero")
+        else:
+            print("deu merda")
+    except:
+        print("Não é possivel efetuar um Deposito sem selecionar uma conta")
 print(titulo)
 
 while True:
     opcao = input(menu)
-    if opcao == "1":
+    if opcao == "0":
+        print("Buscar Cliente".center(50,"="))
+        selecionarCliente()
+    elif opcao == "1":
         print("Deposito".center(50,"="))
         Depositar(float(input("Informe o valor a ser depositado")))
     elif opcao == "2":
@@ -170,27 +287,22 @@ while True:
         
     elif opcao == "3":
         print(titulo_extrato)
-        for i in dados:
-            print(i)
+        ExtratoConta()
     elif opcao=="4":
-        print("Exportar extrato".center(50,"="))
-        table = Table(dados)
-        elems.append(table)
-        pdf.build(elems)
-    elif opcao=="5":
         print("Cadastrar Novo Usuario".center(50,"="))
         nome = input("Informe o nome completo do usuario")
         cpf = int(input("Informe o cpf"))
         endereco = input("Informe p endereço do usuario")
         cadastrarUsuario(nome,cpf,endereco)
-    elif opcao=="6":
+    elif opcao=="5":
         print("Cadastrar Nova Conta".center(50,"="))
         agencia = "0001"
         cadastrarConta(agencia)
-    elif opcao=="7":
+    elif opcao=="6":
         print("Listar Contas".center(50,"="))
         listarContas()
-    elif opcao=="8":
+    elif opcao=="7":
         print("Sair...")
+        break
     else:
         print(titulo)
